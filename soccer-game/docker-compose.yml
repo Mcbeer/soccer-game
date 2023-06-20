@@ -1,0 +1,15 @@
+version: '3.9'
+services:
+  soccer-service:
+    build:
+      dockerfile: Dockerfile
+    environment:
+      - FLASK_APP app.py
+      - FLASK_ENV development
+      - FLASK_RUN_PORT 8002
+      - FLASK_RUN_HOST 0.0.0.0
+    stop_signal: SIGINT
+    ports:
+      - 8002:8002
+    volumes:
+      - .:/code:delegated

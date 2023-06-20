@@ -1,0 +1,119 @@
+service: aws-super-soccer-teambuilder
+
+frameworkVersion: "3"
+
+custom:
+  tableName: "teams-table-${sls:stage}"
+  # every day at 20.00
+  syncronizeSchedule: cron(0 20 ? * * *)
+  localstack:
+    stages:
+      - local
+    host: http://localhost
+    edgePort: 4566
+    autostart: true
+    docker:
+      sudo: false
+  # This is API Gateway thottling witch is easy to setup, but falls short since a spambot can just throttle the api for everyone
+  # A better solution would be rate limiting individual users
+  # apiGatewayThrottling:
+  #   maxRequestsPerSecond: 1000
+  #   maxConcurrentRequests: 500
+
+provider:
+  name: aws
+  runtime: python3.10
+  stage: ${opt:stage, 'local'}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource:
+            - Fn::GetAtt: [TeamsTable, Arn]
+
+functions:
+  getTeams:
+    handler: handler.getTeams
+    events:
+      - http:
+          method: get
+          path: teams
+          cors:
+            origin: "*" # <-- Specify allowed origin
+            headers:
+              - Content-Type
+              - X-Amz-Date
+              - Authorization
+              - X-Api-Key
+              - X-Amz-Security-Token
+              - X-Amz-User-Agent
+              - Access-Control-Allow-Origin
+    environment:
+      TEAMS_TABLE: ${self:custom.tableName}
+
+  getTeam:
+    handler: handler.getTeam
+    events:
+      - http:
+          method: get
+          path: teams/{id}
+          cors:
+            origin: "*" # <-- Specify allowed origin
+            headers:
+              - Content-Type
+              - X-Amz-Date
+              - Authorization
+              - X-Api-Key
+              - X-Amz-Security-Token
+              - X-Amz-User-Agent
+              - Access-Control-Allow-Origin
+    environment:
+      TEAMS_TABLE: ${self:custom.tableName}
+
+  syncronizePokemonTeam:
+    name: ${self:service}-${self:provider.stage}-syncronizePokemon
+    handler: universes/pokemon.syncronizePokemonTeam
+    events:
+      - schedule:
+          name: syncronize-teams
+          description: "trigger to syncronize teams"
+          rate: ${self:custom.syncronizeSchedule}
+
+  syncronizeStarWarsTeam:
+    name: ${self:service}-${self:provider.stage}-syncronizeStarWars
+    handler: universes/starwars.syncronizeStarWarsTeam
+    events:
+      - schedule:
+          name: syncronize-teams
+          description: "trigger to syncronize teams"
+          rate: ${self:custom.syncronizeSchedule}
+
+plugins:
+  - serverless-python-requirements
+  - serverless-localstack
+
+resources:
+  Resources:
+    TeamsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: pk # Partition key
+            AttributeType: S
+          - AttributeName: sk # Sort key
+            AttributeType: S
+        KeySchema:
+          - AttributeName: pk
+            KeyType: HASH
+          - AttributeName: sk
+            KeyType: RANGE
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:custom.tableName}
