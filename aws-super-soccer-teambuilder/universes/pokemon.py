@@ -13,7 +13,19 @@ def getPokemonTeam():
         # For each pokemon, fetch the details
         pokemon = list(map(getPokemonDetails, fetchedPokemon))
     
-    return pokemon
+    # Get the goalie, the tallest person
+    goalie = max(pokemon, key=lambda x: int(x['height']))
+    # Get the 2 shortest pokemon for offence
+    offencePlayers = sorted(pokemon, key=lambda x: float(x['mass']))[:2]
+    # Get the 2 heaviest pokemon for defense
+    defensePlayers = sorted(filter(lambda x: float(x['mass']) > 0, pokemon), key=lambda x: float(x['mass']), reverse=True)[:2]
+
+    team = {
+        "goalie": goalie,
+        "offencePlayers": offencePlayers,
+        "defensePlayers": defensePlayers
+    }
+    return team
 
 def getPokemonDetails(pokemon):
     r = requests.get(pokemon['url'])

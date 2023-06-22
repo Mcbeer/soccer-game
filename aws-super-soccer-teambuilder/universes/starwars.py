@@ -10,7 +10,20 @@ def getStarWarsTeam(pageNumber: int = 1, people = [], totalCount = 999):
             fetchedPeople = list(map(formatPeople, data['results']))
             people = people + fetchedPeople
         return getStarWarsTeam(pageNumber + 1, people, data['count'] or totalCount)
-    return people
+    
+    # Get the goalie, the tallest person
+    goalie = max(people, key=lambda x: int(x['height']))
+    # Get the 2 shortest people for offence
+    offencePlayers = sorted(people, key=lambda x: float(x['mass']))[:2]
+    # Get the 2 heaviest people for defense
+    defensePlayers = sorted(filter(lambda x: float(x['mass']) > 0, people), key=lambda x: float(x['mass']), reverse=True)[:2]
+
+    team = {
+        "goalie": goalie,
+        "offencePlayers": offencePlayers,
+        "defensePlayers": defensePlayers
+    }
+    return team
 
 # This function should have more error handling, what if name is None?
 def formatPeople(person):
